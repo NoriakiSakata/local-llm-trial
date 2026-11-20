@@ -1,6 +1,6 @@
 # ローカルLLM（Qwen）お試しの成果物
 
-のDGX Spark 1台で動かしたローカルLLM（Qwen3.8-Flash-Next）と、クラウドのClaude Code（Opus 5.5）に同じお題を渡して比べたときの成果物です。
+DGX Spark 1台で動かしたローカルLLM（Qwen3.8-Flash-Next）と、クラウドのClaude Code（Opus 5.5）に同じお題を渡して比べたときの成果物です。
 
 ブログ記事：（公開後にURLを追記）
 
