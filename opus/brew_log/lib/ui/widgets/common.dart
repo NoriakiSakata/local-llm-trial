@@ -1,92 +1,123 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../settings/settings_screen.dart';
-import '../theme/tokens.dart';
+import '../../app/theme/tokens.dart';
 
-/// 各タブの AppBar 右上に置く設定ボタン
-class SettingsButton extends StatelessWidget {
-  const SettingsButton({super.key});
-
-  @override
-  Widget build(BuildContext context) => IconButton(
-    tooltip: '設定',
-    icon: const Icon(Icons.settings_outlined),
-    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
-  );
-}
-
-/// 小見出し
+/// セクション見出し（オーバーライン）。labelSmall を大文字的に使う。
 class SectionLabel extends StatelessWidget {
-  const SectionLabel(this.text, {super.key});
+  const SectionLabel(this.text, {super.key, this.trailing});
+
   final String text;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.xs, Space.lg, Space.xs, Space.sm),
-      child: Text(text, style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary)),
+      padding: const EdgeInsets.only(top: AppSpace.xl, bottom: AppSpace.sm),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.labelSmall!.copyWith(
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
     );
   }
 }
 
-/// リストの各行を、表示時にふわっと出す
-class FadeIn extends StatelessWidget {
-  const FadeIn({super.key, required this.child});
+/// 初回表示時に、少し下からフェードインさせる。リストの追加アニメーション用。
+class EntranceAnimation extends StatelessWidget {
+  const EntranceAnimation({super.key, required this.child, this.delay = 0});
+
   final Widget child;
 
-  @override
-  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
-    tween: Tween(begin: 0, end: 1),
-    duration: Motion.medium,
-    curve: Motion.curve,
-    builder: (context, t, child) => Opacity(
-      opacity: t,
-      child: Transform.translate(offset: Offset(0, (1 - t) * 12), child: child),
-    ),
-    child: child,
-  );
-}
-
-/// スワイプ削除の背景
-class DeleteBackground extends StatelessWidget {
-  const DeleteBackground({super.key});
+  /// 0〜1。リスト内の順番に応じて少しずつ遅らせる。
+  final double delay;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: Corner.all(Corner.md)),
-      alignment: Alignment.centerRight,
-      padding: const EdgeInsets.symmetric(horizontal: Space.lg),
-      child: Icon(Icons.delete_outline, color: scheme.onErrorContainer),
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    if (reduceMotion) return child;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: AppMotion.long,
+      curve: Interval(delay.clamp(0, 0.5), 1, curve: AppMotion.standard),
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, (1 - t) * AppSpace.lg),
+          child: child,
+        ),
+      ),
+      child: child,
     );
   }
 }
 
-/// 確認ダイアログ。OK なら true
-Future<bool> confirm(
-  BuildContext context, {
-  required String title,
-  required String message,
-  required String okLabel,
-  bool destructive = false,
-}) async {
-  final scheme = Theme.of(context).colorScheme;
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: Text(message),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル')),
-        TextButton(
-          onPressed: () => Navigator.pop(context, true),
-          style: destructive ? TextButton.styleFrom(foregroundColor: scheme.error) : null,
-          child: Text(okLabel),
-        ),
+/// アイコン付きの小さなメタ情報（例: 🌡 92℃）
+class MetaChip extends StatelessWidget {
+  const MetaChip({super.key, required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.onSurfaceVariant;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: AppSpace.xs),
+        Text(label, style: theme.textTheme.labelMedium!.copyWith(color: color)),
       ],
+    );
+  }
+}
+
+/// 中身の最大幅を制限して中央に寄せる（タブレット・横向き対策）。
+class ContentWidth extends StatelessWidget {
+  const ContentWidth({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topCenter,
+    // 高さは子に合わせる（下部バーなどで縦いっぱいに広がらないように）
+    heightFactor: 1,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: AppSize.contentMaxWidth),
+      child: child,
     ),
   );
-  return ok ?? false;
+}
+
+/// 削除などの取り消し可能な操作の SnackBar。
+void showUndoSnackBar(
+  BuildContext context, {
+  required String message,
+  required VoidCallback onUndo,
+}) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: SnackBarAction(label: '元に戻す', onPressed: onUndo),
+      ),
+    );
+}
+
+void showMessageSnackBar(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
 }

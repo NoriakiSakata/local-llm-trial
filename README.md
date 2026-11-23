@@ -23,4 +23,4 @@ flutter pub get
 flutter run
 ```
 
-Flutterのバージョンは、Qwen版が3.47.9、Opus版が3.50.0です（各フォルダの `.fvmrc` を参照）。
+Flutterのバージョンは、Qwen版が3.47.9、Opus版が3.50.1です（各フォルダの `.fvmrc` を参照）。
