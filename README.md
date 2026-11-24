@@ -12,6 +12,7 @@ DGX Spark 1台で動かしたローカルLLM（Qwen3.8-Flash-Next）と、クラ
 | `qwen/brew_log/` | Qwen（Qwen Code）が作ったFlutterアプリ |
 | `opus/brew_log/` | Opus 5.5（Claude Code）が作ったFlutterアプリ |
 | `research/` | Qwenにまとめてもらった、Flutter/Dartの脆弱性情報の検知ソース調査 |
+| `ai-reviewer/` | ローカルLLMにPRをレビューさせる仕組み（GitHub Actions＋セルフホストランナー、参考用） |
 
 各アプリの起動方法や設計の説明は、それぞれの `README.md` を見てください。
 
