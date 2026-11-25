@@ -1,6 +1,6 @@
 name: AI Review (local LLM)
 
-# ラベル「ai-review」を付けたときだけ動く
+# ラベル「ai-review」（情報を足したレビュー）か「ai-review-basic」（差分だけのレビュー）を付けたときだけ動く
 on:
   pull_request:
     types: [labeled]
@@ -8,22 +8,42 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: read
 
-# 同じPRで前のレビューが動いていたら止めて、新しいほうだけ動かす
 concurrency:
-  group: ai-review-${{ github.event.pull_request.number }}
+  group: ai-review-${{ github.event.pull_request.number }}-${{ github.event.label.name }}
   cancel-in-progress: true
 
 jobs:
   review:
-    # ラベルが ai-review のときだけ / フォークからのPRでは動かさない
     if: >-
-      github.event.label.name == 'ai-review' &&
+      (github.event.label.name == 'ai-review' || github.event.label.name == 'ai-review-basic') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, macOS, ARM64]
-    timeout-minutes: 30
+    timeout-minutes: 40
+    env:
+      REVIEW_MODE: ${{ github.event.label.name == 'ai-review' && 'rich' || 'basic' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      # レビュー用のスクリプトは、PR側ではなくベースブランチのものを使う（PRで書き換えられないように）
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: _review_tools
+          sparse-checkout: .github
+
+      - name: Analyze and test
+        if: env.REVIEW_MODE == 'rich'
+        continue-on-error: true
+        run: |
+          fvm install >/dev/null 2>&1 || true
+          fvm flutter pub get
+          fvm flutter analyze > "$RUNNER_TEMP/analyze.txt" 2>&1 || true
+          fvm flutter test > "$RUNNER_TEMP/test.txt" 2>&1 || true
+          tail -3 "$RUNNER_TEMP/analyze.txt" "$RUNNER_TEMP/test.txt"
 
       - name: Review
         env:
@@ -34,10 +54,12 @@ jobs:
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
-        run: /usr/bin/python3 .github/scripts/ai_review.py
+          ANALYZE_LOG: ${{ runner.temp }}/analyze.txt
+          TEST_LOG: ${{ runner.temp }}/test.txt
+        run: /usr/bin/python3 _review_tools/.github/scripts/ai_review.py
 
       - name: Remove label
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --remove-label ai-review
+        run: gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --remove-label ${{ github.event.label.name }}
